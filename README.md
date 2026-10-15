@@ -66,3 +66,12 @@ Deploy: `cd vercel-site && npx vercel --prod`. Vercel cannot run the WebSocket l
 there (the lobby buttons explain why). Host `server.js` on a VM/container platform (Fly.io, Railway, a VPS) for co-op.
 Rebuild after code changes: `npx esbuild src/main.js --bundle --minify --format=esm --external:three --outfile=vercel-site/game.js`
 (then copy `index.html`/`style.css` and keep the CDN importmap + `window.RB_STATIC=1`).
+
+## Visuals
+The Crimson Mother follows the reference sketch: tall gaunt skull, elongated lower face with a vertical needle-toothed maw
+and long tongue, black glinting eyes, thick writhing hair tendrils, hollow "eyes" in a bare chest, red blood-soaked skin and a
+blood pentagram on her forehead (`src/demon.js`, `src/gore.js`). In the opening she stands over the fallen player holding a
+severed head by the hair, its spine swinging, blood dripping (`playCinematic` scene 5).
+Realism pass: HDR bloom, film grain, chromatic aberration and ACES tone mapping (`src/post.js`, off on "Low" quality),
+bump-mapped wet stone, blood decals, a volumetric flashlight beam, PBR skin with clearcoat. This is procedural WebGL art, not
+photoscanned assets, so it is atmospheric rather than photorealistic; true photorealism needs authored models/textures.

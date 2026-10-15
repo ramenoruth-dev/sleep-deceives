@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { MAP, CELL, WALL_H, W, H, zoneAt } from './map.js';
 import { Grid } from './shared/grid.js';
+import { bloodDecalTextures } from './gore.js';
 
 function canvasTex(size, draw, repeat) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -54,9 +55,10 @@ export class World {
 
   // ---------- geometry ----------
   _buildShell() {
-    const g = this.group, mw = new THREE.MeshStandardMaterial({ map: stoneTex('#2c2629'), roughness: 0.95, metalness: 0 });
-    const mf = new THREE.MeshStandardMaterial({ map: stoneTex('#1d1a1c', [W, H]), roughness: 0.8 });
-    const mc = new THREE.MeshStandardMaterial({ map: stoneTex('#151214', [W, H]), roughness: 1 });
+    const g = this.group, wt = stoneTex('#2c2629'), ft = stoneTex('#1d1a1c', [W, H]), ct = stoneTex('#151214', [W, H]);
+    const mw = new THREE.MeshStandardMaterial({ map: wt, bumpMap: wt, bumpScale: 2.2, roughness: 0.9 });
+    const mf = new THREE.MeshStandardMaterial({ map: ft, bumpMap: ft, bumpScale: 1.6, roughness: 0.42 });      // damp stone: red lights glint on it
+    const mc = new THREE.MeshStandardMaterial({ map: ct, bumpMap: ct, bumpScale: 1.4, roughness: 0.95 });
     // walls: only those touching walkable space
     const cells = [];
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -85,6 +87,20 @@ export class World {
       const nx = x + Math.sign(dirs[0]), ny = y + Math.sign(dirs[1]);
       if (nx < 0 || ny < 0 || nx >= W || ny >= H || MAP[ny][nx] === '#') { c.geometry.dispose(); continue; }
       c.position.set(px + dirs[0], hgt, pz + dirs[1]); c.rotation.y = dirs[2]; c.rotation.z = (this.rng() - 0.5) * 0.5; g.add(c);
+    }
+    // blood: pools and splatters on the floor, smears and handprints on the walls
+    const D = bloodDecalTextures(256), mat = t => new THREE.MeshStandardMaterial({ map: t, transparent: true, depthWrite: false, roughness: 0.14, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+    const dm = { pool: mat(D.pool), splat: mat(D.splat), smear: mat(D.smear), hand: mat(D.hand) }, nf = this.quality === 'low' ? 16 : 42;
+    for (let i = 0; i < nf; i++) {
+      const [cx, cy] = this.floorCells[Math.floor(this.rng() * this.floorCells.length)], k = this.rng() < 0.45 ? 'pool' : 'splat', sz = 0.7 + this.rng() * 2.0;
+      const d = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), dm[k]); d.rotation.x = -Math.PI / 2; d.rotation.z = this.rng() * 6.28; d.position.set((cx + 0.15 + this.rng() * 0.7) * CELL, 0.012 + i * 0.0004, (cy + 0.15 + this.rng() * 0.7) * CELL); g.add(d);
+    }
+    const nw = this.quality === 'low' ? 10 : 30;
+    for (let i = 0; i < nw; i++) {
+      const [x, y] = cells[Math.floor(this.rng() * cells.length)], side = Math.floor(this.rng() * 4), e = CELL / 2 + 0.012, dirs = [[e, 0, -Math.PI / 2], [-e, 0, Math.PI / 2], [0, e, Math.PI], [0, -e, 0]][side];
+      const nx = x + Math.sign(dirs[0]), ny = y + Math.sign(dirs[1]); if (nx < 0 || ny < 0 || nx >= W || ny >= H || MAP[ny][nx] === '#') continue;
+      const k = this.rng() < 0.5 ? 'smear' : this.rng() < 0.5 ? 'hand' : 'splat', sz = 0.6 + this.rng() * 1.1, d = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), dm[k]);
+      d.position.set((x + 0.5) * CELL + dirs[0] + (dirs[1] ? (this.rng() - 0.5) * 2 : 0), 0.9 + this.rng() * 2.0, (y + 0.5) * CELL + dirs[1] + (dirs[0] ? (this.rng() - 0.5) * 2 : 0)); d.rotation.y = dirs[2]; g.add(d);
     }
     // dust motes
     const dustN = this.quality === 'low' ? 150 : 450, pos = new Float32Array(dustN * 3);

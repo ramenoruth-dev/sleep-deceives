@@ -21,6 +21,12 @@ export class Player {
     this.flash.castShadow = true; this.flash.shadow.mapSize.set(1024, 1024); this.flash.shadow.bias = -0.0005;
     this.flash.target.position.set(0, 0, -1);
     camera.add(this.flash); camera.add(this.flash.target); this.flash.position.set(0.15, -0.1, 0);
+    // faint volumetric beam: dust and fog catch the light
+    const cone = new THREE.ConeGeometry(3.4, 20, 28, 1, true); cone.translate(0, -10, 0); cone.rotateX(Math.PI / 2);
+    this.beam = new THREE.Mesh(cone, new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false, uniforms: { uI: { value: 0.07 } },
+      vertexShader: 'varying float vK; varying vec3 vN; varying vec3 vV; void main(){ vK = clamp(-position.z / 20.0, 0.0, 1.0); vec4 mv = modelViewMatrix * vec4(position,1.0); vN = normalMatrix * normal; vV = -mv.xyz; gl_Position = projectionMatrix * mv; }',
+      fragmentShader: 'uniform float uI; varying float vK; varying vec3 vN; varying vec3 vV; void main(){ float f = abs(dot(normalize(vN), normalize(vV))); float a = uI * pow(f, 1.5) * (1.0 - vK) * smoothstep(0.0, 0.08, vK); gl_FragColor = vec4(vec3(1.0, 0.93, 0.8) * a, a); }' }));
+    this.beam.position.copy(this.flash.position); this.beam.frustumCulled = false; this.beam.renderOrder = 4; camera.add(this.beam);
     this.applyQuality();
     this._bind();
   }
@@ -92,7 +98,7 @@ export class Player {
     let v = this.flashOn ? 1 : 0;
     if (this.flashOn) { if (this.flashFlicker > 0 && Math.random() < 0.5) v = 0.05; else if (this.marked && Math.random() < 0.01) v = 0.1; }
     this.flash.intensity = 38 * v;
-    this.flash.visible = this.flash.intensity > 0.01;
+    this.flash.visible = this.flash.intensity > 0.01; this.beam.visible = this.flash.visible; this.beam.material.uniforms.uI.value = 0.07 * v;
   }
 
   forward() { return new THREE.Vector3(-Math.sin(this.yaw), 0, -Math.cos(this.yaw)); }

@@ -14,6 +14,8 @@ import { LocalNet } from './net.js';
 import { LobbyUI } from './lobbyui.js';
 import { Remotes } from './remote.js';
 import { RedRift } from './portal.js';
+import { buildSeveredHead, BloodDrips } from './gore.js';
+import { PostFX } from './post.js';
 import { SkillCheck } from './skillcheck.js';
 import { buildBedroom, buildHellIntro, buildChamber } from './sets.js';
 import { LORE } from './lore.js';
@@ -35,6 +37,7 @@ class Game {
     this.camera = new THREE.PerspectiveCamera(settings.fov, innerWidth / innerHeight, 0.05, 220); this.scene.add(this.camera);
     this.ambient = new THREE.AmbientLight(0x4a2228, 1.6); this.scene.add(this.ambient);
 
+    this.post = new PostFX(this.renderer, this.scene, this.camera);
     this.audio = new AudioSys(); this.audio.caption = t => this.caption(t);
     this.skill = new SkillCheck(this.audio);
     this.rift = new RedRift(this.scene);
@@ -62,9 +65,9 @@ class Game {
     this.ambient.intensity = 1.6 * b;
     $('view').style.filter = `brightness(${0.6 + b * 0.4})`;
     this.renderer.setPixelRatio(settings.quality === 'low' ? 0.7 : Math.min(devicePixelRatio, settings.quality === 'high' ? 2 : 1.25));
-    this.audio.applySettings(); this.player?.applyQuality(); this.resize();
+    this.audio.applySettings(); this.player?.applyQuality(); this.post?.setQuality(settings.quality); this.resize();
   }
-  resize() { this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix(); this.renderer.setSize(innerWidth, innerHeight, false); }
+  resize() { this.camera.aspect = innerWidth / innerHeight; this.camera.updateProjectionMatrix(); this.renderer.setSize(innerWidth, innerHeight, false); this.post?.setSize(innerWidth, innerHeight); }
   caption(text) {
     if (!settings.subs) return;
     const el = document.createElement('div'); el.textContent = text; $('subs').appendChild(el);
@@ -137,6 +140,8 @@ class Game {
   }
   resume() { this.paused = false; if (this.online) this.player.frozen = !!this.waitingStart; this.audio.ctx?.resume?.(); this.showScreen(null); this.clock = performance.now(); this.lockPointer(); }
   resetView() {
+    this.runId = (this.runId || 0) + 1; this.chairActive = false; this.capFn = null;           // invalidate any cinematic/capture still in flight
+    if (this.segRes) { const r = this.segRes; this.segFn = null; this.segRes = null; this.cineSkip = true; r(); }
     this.skill.stop(); this.paused = false; document.exitPointerLock?.(); this.audio.setMuffle(0, 0.2); this.audio.setSilence(false); this.audio.setRain(0);
     $('hud').classList.add('hidden'); $('cine').classList.add('hidden'); $('spectate').classList.add('hidden'); $('lock-hint').classList.add('hidden'); this.black(false, 200); $('fx-rift').style.opacity = 0; $('view').style.transform = '';
     this.setSets(null); this.setFog(0x020102, 0.07); this.rift.group.visible = false; this.rift.state = 'closed'; this.remotes.clear(); this.mq = []; this.waiters = [];
@@ -163,7 +168,7 @@ class Game {
   async beginMatch(init, o) {
     this.skill.stop(); const id = this.runId = (this.runId || 0) + 1; this.showScreen(null); this.audio.init(); this.remotes.clear(); this.mq = []; this.waiters = [];
     if (this.world) { this.scene.remove(this.world.group); this.world = null; }
-    if (this.demon) { this.scene.remove(this.demon.model); this.demon = null; }
+    if (this.demon) { this.demon.dispose(); this.demon = null; }
     this.me = init.you; this.names = new Map(init.players.map(p => [p.id, p.name])); this.snap = null; this.matchOver = false;
     this.diffKey = init.diffKey; this.diff = DIFFICULTY[init.diffKey];
     this.world = new World(this.scene, mulberry(init.seed), settings.quality, init.fuseSpots); this.world.group.visible = false;
@@ -337,17 +342,40 @@ class Game {
         demon.userData.parts.hair.forEach(h => { h.rotation.z = Math.sin(t + h.userData.ph) * h.userData.amp; });
       });
     }
-    // Scene 5: capture — the Red Rift
+    // Scene 5: the capture. She runs in, you are knocked flat, and she stands over you holding a severed head by its hair
     if (!this.cineSkip) {
-      fired = new Set(); const X = 2000, demon = this.hell.userData.demon, startZ = demon.position.z, c0 = cam.position.clone();
+      fired = new Set(); const X = 2000, demon = this.hell.userData.demon, parts = demon.userData.parts, startZ = demon.position.z, c0 = cam.position.clone(), H = this.hell.userData;
       A.setSilence(false, 0.1);
-      await this.seg(7.5, t => {
-        if (t < 2.4) { demon.position.z = startZ + (c0.z - 5 - startZ) * (t / 2.4) ** 1.7; const parts = demon.userData.parts; parts.arms.forEach(a => a.rotation.x = -1.7); parts.body.rotation.x = 0.5; }
-        if (t > 2.2 && once(fired, 'r')) { this.rift.openAt(new THREE.Vector3(X, 1.7, c0.z - 3.2), new THREE.Vector3(X, 1.7, c0.z)); A.rift(); A.setMuffle(0.9, 3.5); this.shake = 1; }
-        if (t > 2.2) { const k = Math.min(1, (t - 2.2) / 4); cam.position.z = c0.z - k * k * 2.6; this.shake = 0.6 + k; $('fx-rift').style.opacity = Math.min(1, k * 1.4); cam.rotation.z = Math.sin(t * 9) * 0.04 * k; }
-        if (t > 6.4 && once(fired, 'k')) { $('fx-black').style.transition = 'opacity 1s'; $('fx-black').style.opacity = 1; }
+      if (!H.head) {                                                // built once: the head hangs from her right hand
+        H.head = buildSeveredHead(); parts.arms[1].userData.hold.add(H.head);
+        H.drips = new BloodDrips(this.scene, 46, 0.05); H.drips.setSources([...H.head.userData.dripSources, ...demon.userData.dripSources]);
+        H.key = new THREE.PointLight(0xff4a30, 26, 9, 2); demon.add(H.key); H.key.position.set(0, 3.0, 1.6);
+        H.fill = new THREE.PointLight(0xffb8a0, 7, 6, 2); H.fill.position.set(X, 0.9, c0.z - 1.2); this.hell.parent.add(H.fill);
+      }
+      H.head.visible = true; H.key.visible = H.fill.visible = true;
+      const sm = x => { x = Math.min(1, Math.max(0, x)); return x * x * (3 - 2 * x); };
+      await this.seg(11.8, t => {
+        const run = 1 - Math.pow(1 - Math.min(1, t / 3.2), 3), raise = sm((t - 3.0) / 1.6), fall = sm((t - 1.5) / 1.3);
+        demon.position.z = startZ + (c0.z - 2.5 - startZ) * run;
+        const arm = parts.arms[1], other = parts.arms[0], fore = arm.userData.fore;
+        parts.body.rotation.x = (t < 2.8 ? 0.45 : 0.45 - 0.3 * sm((t - 2.8) / 1.2));
+        arm.rotation.x = t < 3 ? -0.3 + Math.sin(t * 13) * 0.5 * (1 - sm(t / 3)) : -0.3 - raise * 0.5; fore.rotation.x = -0.3 - raise * 0.55; arm.rotation.z = -0.35 * raise;
+        other.rotation.x = t < 3 ? 0.3 - Math.sin(t * 13) * 0.5 * (1 - sm(t / 3)) : 0.1 + Math.sin(t * 1.4) * 0.05;
+        parts.head.rotation.x = 0.4 * raise;
+        H.head.rotation.x = -(arm.rotation.x + fore.rotation.x + parts.body.rotation.x); H.head.userData.update(this.time + t, raise);
+        cam.position.set(X, 1.65 - 1.3 * fall + Math.sin(t * 2.2) * 0.012 * fall, c0.z); cam.rotation.set(0.78 * fall + Math.sin(t * 0.9) * 0.01, 0, 0.22 * fall * Math.sin(Math.min(1, t / 3) * 2), 'YXZ');
+        if (t > 1.6 && once(fired, 'fall')) { this.shake = 1; this.flashScreen(0.5); A.glitch({ x: X, y: 0.3, z: c0.z }, 0.6); A.footstep({ x: X, y: 0, z: c0.z }, { heavy: true, vol: 0.8 }); }
+        if (t > 3.2 && once(fired, 'c1')) this.cineText('[She stands over you.]', 3000);
+        if (t > 5.2 && once(fired, 'c2')) { this.cineText('She holds it up so you can see. It is still dripping.', 4200); A.breath({ x: X, y: 2.6, z: c0.z - 2.5 }, 0.8); }
+        parts.hair.forEach(h => { h.rotation.z = Math.sin(this.time * 0.9 + t + h.userData.ph) * h.userData.amp; });
+        H.drips.update(this.dt, t > 3.4);
+        if (t > 8.2 && once(fired, 'r')) { this.rift.openAt(new THREE.Vector3(X, 1.1, c0.z - 1.1), new THREE.Vector3(X, 1.1, c0.z)); A.rift(); A.setMuffle(0.9, 3.0); this.shake = 1; }
+        if (t > 8.2) { const k = Math.min(1, (t - 8.2) / 3); cam.position.z = c0.z - k * k * 1.3; this.shake = 0.6 + k; $('fx-rift').style.opacity = Math.min(1, k * 1.4); cam.rotation.z += Math.sin(t * 9) * 0.04 * k; }
+        else if (fall > 0.8) this.shake = Math.max(this.shake, 0.12);
+        if (t > 10.7 && once(fired, 'k')) { $('fx-black').style.transition = 'opacity 1s'; $('fx-black').style.opacity = 1; }
       });
-      this.rift.group.visible = false; this.rift.state = 'closed'; $('fx-rift').style.opacity = 0;
+      H.head.visible = false; H.key.visible = H.fill.visible = false; H.drips.update(0.016, false); this.rift.group.visible = false; this.rift.state = 'closed'; $('fx-rift').style.opacity = 0;
+      parts.arms.forEach(a => { a.rotation.x = 0; a.userData.fore.rotation.x = 0; }); parts.body.rotation.x = 0; parts.head.rotation.x = 0;
     }
     // Scene 6: the chair (tutorial, local only)
     this.cineSkip = false; $('cine').classList.add('hidden'); this.shake = 0;
@@ -559,6 +587,7 @@ class Game {
   }
   /** One simulation + render step (also callable manually for deterministic tests). */
   tick(dt) {
+    this.dt = dt;
     try {
       if (!this.paused || this.online) {
         this.time += dt;
@@ -581,7 +610,7 @@ class Game {
         if (this.audio.ctx) this.audio.updateListener(this.camera);
         for (let i = this.fxList.length - 1; i >= 0; i--) { const f = this.fxList[i]; f.t += dt; f.m.scale.x = 0.2 + f.t * 6; f.m.material.opacity = Math.max(0, 0.8 - f.t * 2.2); if (f.t > 0.4) { this.scene.remove(f.m); this.fxList.splice(i, 1); } }
       }
-      this.renderer.render(this.scene, this.camera);
+      if (this.post?.enabled) this.post.render(dt, this.time, settings.reduceShake ? 0 : this.distort); else this.renderer.render(this.scene, this.camera);
     } catch (err) { console.error('frame error', err); this.lastError = err; }
   }
 
