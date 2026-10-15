@@ -1,0 +1,20 @@
+{
+  "name": "the-red-below",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "lan": "node server.js --lan",
+    "test:match": "node test/match-test.mjs",
+    "test:net": "node test/net-test.js  # needs: node server.js 8090"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "three": "^0.160.0",
+    "ws": "^8.22.0"
+  }
+}
