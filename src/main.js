@@ -105,7 +105,7 @@ class Game {
       this.audio.init(); const go = b.dataset.go;
       if (go === 'main') { this.refreshMenu(); this.showScreen('menu'); } else { this.refreshMenu(); this.showScreen(go); }
     }));
-    $('opt-skipintro').checked = save.seenIntro;
+    $('opt-skipintro').checked = false;   // the opening cinematic plays every time unless you tick this
     document.querySelectorAll('[data-diff]').forEach(b => b.addEventListener('click', () => { this.audio.init(); this.startRun(b.dataset.diff, $('opt-skipintro').checked); }));
     $('btn-resume').addEventListener('click', () => this.resume());
     $('btn-quit').addEventListener('click', () => this.toMenu());
@@ -182,7 +182,7 @@ class Game {
     this.state = 'cine'; this.paused = false; this.canSkipCine = o.canSkip; $('cine-skip').classList.toggle('hidden', !o.canSkip);
     if (o.intro) await this.playCinematic(id); else await this.black(true, 300);
     if (id !== this.runId || this.state === 'menu') return;
-    save.seenIntro = true; saveProgress(); $('opt-skipintro').checked = true;
+    save.seenIntro = true; saveProgress();
     this.beginPlay(init);
   }
   beginPlay(init) {
