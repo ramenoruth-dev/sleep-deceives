@@ -99,3 +99,5 @@ div.codebox{border-color:var(--red)}
 #spectate{position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:12;background:rgba(0,0,0,.6);border:1px solid #3a2a2d;padding:8px 16px;letter-spacing:.1em;font-size:14px;text-align:center}
 .team-row{display:flex;gap:8px;align-items:center;font-size:13px}.team-row .life{width:9px;height:9px}
 .res{display:grid;gap:4px;font-size:14px;text-align:left;margin-top:8px}
+
+#devcredit{position:fixed;right:18px;bottom:12px;z-index:60;font-size:13px;letter-spacing:.14em;opacity:.55;pointer-events:none;text-shadow:0 0 6px #000;font-style:italic}
