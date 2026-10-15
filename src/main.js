@@ -1,4 +1,4 @@
-// THE RED BELOW — client orchestration.
+// SLEEP DECEIVES — client orchestration.
 // All rules (demon AI, lives, captures, chair outcomes, fuses, gate, hiding) are decided by the authoritative Match,
 // which runs on the server (online) or in-process (solo).  This file renders the world from its messages, runs the
 // local player's input, cinematics and the chair minigame, and reports inputs back through `this.net`.
@@ -284,7 +284,7 @@ class Game {
     this.state = 'results'; $('hud').classList.add('hidden'); $('spectate').classList.add('hidden'); this.audio.setMuffle(0.3, 2); this.black(false, 300);
     const mine = m.results[this.me]; if (mine?.outcome === 'escaped') { save.escapes++; if (!save.bestTime || m.time < save.bestTime) save.bestTime = m.time; } else if (mine?.outcome === 'dead') save.deaths++; saveProgress();
     $('end-title').textContent = mine?.outcome === 'escaped' ? 'You wake up' : 'You did not wake';
-    $('end-text').textContent = mine?.outcome === 'escaped' ? 'Rain on the window. The hallway is quiet. Something behind the door is still breathing.' : (m.win ? 'Others escaped without you.' : 'The Red Below keeps its sleepers.');
+    $('end-text').textContent = mine?.outcome === 'escaped' ? 'Rain on the window. The hallway is quiet. Something behind the door is still breathing.' : (m.win ? 'Others escaped without you.' : 'Sleep keeps its own.');
     const rows = Object.entries(m.results).map(([id, r]) => `<div>${esc(r.name)}${id === this.me ? ' (you)' : ''} — ${r.outcome === 'escaped' ? 'ESCAPED' : r.outcome === 'left' ? 'disconnected' : 'lost'} · captures ${r.captures} · fuses ${r.fuses} · perfect checks ${r.perfects} · rescues ${r.rescues}</div>`).join('');
     $('end-stats').innerHTML = `<div class="note">Time ${this.fmt(m.time)} · ${m.diff} · ${esc(m.pers)} · Fuses ${m.fuses}/3 · Documents ${this.run.docs}/3</div><div class="res">${rows}</div>`;
     $('btn-again').classList.toggle('hidden', this.online); $('btn-again').textContent = 'Descend again'; $('btn-menu').textContent = this.online ? 'Back to lobby' : 'Main menu';

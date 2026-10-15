@@ -66,7 +66,7 @@ export class LobbyUI {
   show() { this.g.showScreen('lobby'); this.setStatus(this.net?.status || 'offline'); }
   async copyInvite() {
     const url = `${location.origin}/?join=${this.lobby?.code || ''}`;
-    try { if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) await navigator.share({ title: 'The Red Below', text: 'Join my lobby', url }); else await navigator.clipboard.writeText(url); $('lobby-err').textContent = ''; $('btn-copy').textContent = 'Link copied'; }
+    try { if (navigator.share && /Mobi|Android/i.test(navigator.userAgent)) await navigator.share({ title: 'Sleep Deceives', text: 'Join my lobby', url }); else await navigator.clipboard.writeText(url); $('lobby-err').textContent = ''; $('btn-copy').textContent = 'Link copied'; }
     catch { $('lobby-err').textContent = 'Copy this link: ' + url; }
     setTimeout(() => { $('btn-copy').textContent = 'Copy invite link'; }, 2000);
   }

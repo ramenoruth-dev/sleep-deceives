@@ -1,4 +1,4 @@
-// THE RED BELOW — static file server + WebSocket lobby/match server (authoritative).
+// SLEEP DECEIVES — static file server + WebSocket lobby/match server (authoritative).
 //   node server.js [port] [--lan]
 // --lan (or HOST=0.0.0.0) listens on all interfaces so friends on your network can join.
 // For play over the internet, host this on a public machine (or tunnel the port); the game uses ws:// or wss:// automatically.
@@ -24,7 +24,7 @@ const server = http.createServer((req, res) => {
   if (rel === '/health') { res.writeHead(200); return res.end(JSON.stringify({ ok: true, lobbies: lobbies.size })); }
   const file = path.normalize(path.join(root, rel));
   const allowed = file.startsWith(root) && !file.includes(`${path.sep}.`) &&
-    (rel === '/index.html' || rel === '/style.css' || rel.startsWith('/src/') || rel.startsWith('/node_modules/three/'));
+    (rel === '/index.html' || rel === '/style.css' || rel === '/favicon.svg' || rel.startsWith('/src/') || rel.startsWith('/node_modules/three/'));
   if (!allowed) { res.writeHead(403); return res.end('Forbidden'); }
   fs.readFile(file, (err, data) => {
     if (err) { res.writeHead(404); return res.end('Not found'); }
@@ -149,7 +149,7 @@ setInterval(() => { for (const [c, L] of lobbies) if (!L.members.size || Date.no
 (async () => {
   ({ Match } = await import('./src/shared/match.js'));
   server.listen(port, host, () => {
-    console.log(`THE RED BELOW running at http://localhost:${port}  (listening on ${host})`);
+    console.log(`SLEEP DECEIVES running at http://localhost:${port}  (listening on ${host})`);
     if (host === '127.0.0.1') console.log('Only this computer can connect. Use "node server.js --lan" to let friends on your network join.');
   });
 })();
